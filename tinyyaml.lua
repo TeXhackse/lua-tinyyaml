@@ -455,9 +455,11 @@ local function parsescalar(line, lines, indent)
     return null
   end
 
-  local ts, _ = parsetimestamp(line)
-  if ts then
-    return ts
+  if options.timestamp ~= false then
+    local ts, _ = parsetimestamp(line)
+    if ts then
+      return ts
+    end
   end
 
   local s, _ = parsestring(line)
