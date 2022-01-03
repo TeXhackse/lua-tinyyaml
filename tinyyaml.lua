@@ -146,76 +146,6 @@ local function countindent(line)
   return j, ssub(line, j+1)
 end
 
-local function parsestring(line, stopper)
-  stopper = stopper or ''
-  local q = ssub(line, 1, 1)
-  if q == ' ' or q == '\t' then
-    return parsestring(ssub(line, 2))
-  end
-  if q == "'" then
-    local i = sfind(line, "'", 2, true)
-    if not i then
-      return nil, line
-    end
-    return ssub(line, 2, i-1), ssub(line, i+1)
-  end
-  if q == '"' then
-    local i, buf = 2, ''
-    while i < #line do
-      local c = ssub(line, i, i)
-      if c == '\\' then
-        local n = ssub(line, i+1, i+1)
-        if UNESCAPES[n] ~= nil then
-          buf = buf..UNESCAPES[n]
-        elseif n == 'x' then
-          local h = ssub(i+2,i+3)
-          if sfind(h, '^[0-9a-fA-F]$') then
-            buf = buf..schar(tonumber(h, 16))
-            i = i + 2
-          else
-            buf = buf..'x'
-          end
-        else
-          buf = buf..n
-        end
-        i = i + 1
-      elseif c == q then
-        break
-      else
-        buf = buf..c
-      end
-      i = i + 1
-    end
-    return buf, ssub(line, i+1)
-  end
-  if q == '{' or q == '[' then  -- flow style
-    return nil, line
-  end
-  if q == '|' or q == '>' then  -- block
-    return nil, line
-  end
-  if q == '-' or q == ':' then
-    if ssub(line, 2, 2) == ' ' or ssub(line, 2, 2) == '\n' or #line == 1 then
-      return nil, line
-    end
-  end
-  local buf = ''
-  while #line > 0 do
-    local c = ssub(line, 1, 1)
-    if sfind(stopper, c, 1, true) then
-      break
-    elseif c == ':' and (ssub(line, 2, 2) == ' ' or ssub(line, 2, 2) == '\n' or #line == 1) then
-      break
-    elseif c == '#' and (ssub(buf, #buf, #buf) == ' ') then
-      break
-    else
-      buf = buf..c
-    end
-    line = ssub(line, 2)
-  end
-  return rtrim(buf), line
-end
-
 local function isemptyline(line)
   return line == '' or sfind(line, '^%s*$') or sfind(line, '^%s*#')
 end
@@ -807,6 +737,77 @@ local function parse(source, options)
   if options == nil then
     options = {}
   end
+
+local function parsestring(line, stopper)
+  stopper = stopper or ''
+  local q = ssub(line, 1, 1)
+  if q == ' ' or q == '\t' then
+    return parsestring(ssub(line, 2))
+  end
+  if q == "'" then
+    local i = sfind(line, "'", 2, true)
+    if not i then
+      return nil, line
+    end
+    return ssub(line, 2, i-1), ssub(line, i+1)
+  end
+  if q == '"' then
+    local i, buf = 2, ''
+    while i < #line do
+      local c = ssub(line, i, i)
+      if c == '\\' then
+        local n = ssub(line, i+1, i+1)
+        if UNESCAPES[n] ~= nil then
+          buf = buf..UNESCAPES[n]
+        elseif n == 'x' then
+          local h = ssub(i+2,i+3)
+          if sfind(h, '^[0-9a-fA-F]$') then
+            buf = buf..schar(tonumber(h, 16))
+            i = i + 2
+          else
+            buf = buf..'x'
+          end
+        else
+          buf = buf..n
+        end
+        i = i + 1
+      elseif c == q then
+        break
+      else
+        buf = buf..c
+      end
+      i = i + 1
+    end
+    return buf, ssub(line, i+1)
+  end
+  if q == '{' or q == '[' then  -- flow style
+    return nil, line
+  end
+  if q == '|' or q == '>' then  -- block
+    return nil, line
+  end
+  if q == '-' or q == ':' then
+    if ssub(line, 2, 2) == ' ' or ssub(line, 2, 2) == '\n' or #line == 1 then
+      return nil, line
+    end
+  end
+  local buf = ''
+  while #line > 0 do
+    local c = ssub(line, 1, 1)
+    if sfind(stopper, c, 1, true) then
+      break
+    elseif c == ':' and (ssub(line, 2, 2) == ' ' or ssub(line, 2, 2) == '\n' or #line == 1) then
+      break
+    elseif c == '#' and (ssub(buf, #buf, #buf) == ' ') then
+      break
+    else
+      buf = buf..c
+    end
+    line = ssub(line, 2)
+  end
+  return rtrim(buf), line
+end
+
 
 local function parse_inner (source)
   local lines = {}
