@@ -802,7 +802,13 @@ local function parsedocuments(lines)
 end
 
 --- Parse yaml string into table.
-local function parse(source)
+local function parse(source, options)
+
+  if options == nil then
+    options = {}
+  end
+
+local function parse_inner (source)
   local lines = {}
   for line in string.gmatch(source .. '\n', '(.-)\r?\n') do
     tinsert(lines, line)
@@ -812,8 +818,10 @@ local function parse(source)
   if #docs == 1 then
     return docs[1]
   end
-
   return docs
+end
+
+  return parse_inner(source)
 end
 
 return {
