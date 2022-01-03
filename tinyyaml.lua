@@ -189,88 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-function parsemap(line, lines, indent)
-  if not isemptyline(line) then
-    error('not map line: '..line)
-  end
-  local map = setmetatable({}, types.map)
-  while #lines > 0 do
-    -- Check for a new document
-    line = lines[1]
-    if startswith(line, '---') then
-      while #lines > 0 and not startswith(lines, '---') do
-        tremove(lines, 1)
-      end
-      return map
-    end
-
-    -- Check the indent level
-    local level, _ = countindent(line)
-    if level < indent then
-      return map
-    elseif level > indent then
-      error("found bad indenting in line: ".. line)
-    end
-
-    -- Find the key
-    local key
-    local s, rest = parsestring(line)
-
-    -- Quoted keys
-    if s and startswith(rest, ':') then
-      local sc = parsescalar(s, {}, 0)
-      if sc and type(sc) ~= 'string' then
-        key = sc
-      else
-        key = s
-      end
-      line = ssub(rest, 2)
-    else
-      error("failed to classify line: "..line)
-    end
-
-    key = checkdupekey(map, key)
-    line = ltrim(line)
-
-    if ssub(line, 1, 1) == '!' then
-      -- ignore type
-      local rh = ltrim(ssub(line, 3))
-      local typename = smatch(rh, '^!?[^%s]+')
-      line = ltrim(ssub(rh, #typename+1))
-    end
-
-    if not isemptyline(line) then
-      tremove(lines, 1)
-      line = ltrim(line)
-      map[key] = parsescalar(line, lines, indent)
-    else
-      -- An indent
-      tremove(lines, 1)
-      if #lines == 0 then
-        map[key] = null
-        return map;
-      end
-      if sfind(lines[1], '^%s*%-') then
-        local indent2 = countindent(lines[1])
-        map[key] = parseseq('', lines, indent2)
-      elseif sfind(lines[1], '^%s*%?') then
-        local indent2 = countindent(lines[1])
-        map[key] = parseset('', lines, indent2)
-      else
-        local indent2 = countindent(lines[1])
-        if indent >= indent2 then
-          -- Null hash entry
-          map[key] = null
-        else
-          map[key] = parsemap('', lines, indent2)
-        end
-      end
-    end
-  end
-  return map
-end
-
-
 -- : (list<str>)->dict
 local function parsedocuments(lines)
   lines = compactifyemptylines(lines)
@@ -806,6 +724,87 @@ local function parseset(line, lines, indent)
     end
   end
   return set
+end
+
+function parsemap(line, lines, indent)
+  if not isemptyline(line) then
+    error('not map line: '..line)
+  end
+  local map = setmetatable({}, types.map)
+  while #lines > 0 do
+    -- Check for a new document
+    line = lines[1]
+    if startswith(line, '---') then
+      while #lines > 0 and not startswith(lines, '---') do
+        tremove(lines, 1)
+      end
+      return map
+    end
+
+    -- Check the indent level
+    local level, _ = countindent(line)
+    if level < indent then
+      return map
+    elseif level > indent then
+      error("found bad indenting in line: ".. line)
+    end
+
+    -- Find the key
+    local key
+    local s, rest = parsestring(line)
+
+    -- Quoted keys
+    if s and startswith(rest, ':') then
+      local sc = parsescalar(s, {}, 0)
+      if sc and type(sc) ~= 'string' then
+        key = sc
+      else
+        key = s
+      end
+      line = ssub(rest, 2)
+    else
+      error("failed to classify line: "..line)
+    end
+
+    key = checkdupekey(map, key)
+    line = ltrim(line)
+
+    if ssub(line, 1, 1) == '!' then
+      -- ignore type
+      local rh = ltrim(ssub(line, 3))
+      local typename = smatch(rh, '^!?[^%s]+')
+      line = ltrim(ssub(rh, #typename+1))
+    end
+
+    if not isemptyline(line) then
+      tremove(lines, 1)
+      line = ltrim(line)
+      map[key] = parsescalar(line, lines, indent)
+    else
+      -- An indent
+      tremove(lines, 1)
+      if #lines == 0 then
+        map[key] = null
+        return map;
+      end
+      if sfind(lines[1], '^%s*%-') then
+        local indent2 = countindent(lines[1])
+        map[key] = parseseq('', lines, indent2)
+      elseif sfind(lines[1], '^%s*%?') then
+        local indent2 = countindent(lines[1])
+        map[key] = parseset('', lines, indent2)
+      else
+        local indent2 = countindent(lines[1])
+        if indent >= indent2 then
+          -- Null hash entry
+          map[key] = null
+        else
+          map[key] = parsemap('', lines, indent2)
+        end
+      end
+    end
+  end
+  return map
 end
 
 local function parse_inner (source)
