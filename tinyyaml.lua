@@ -189,8 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local parsemap;  -- : func
-
 local function parseseq(line, lines, indent)
   local seq = setmetatable({}, types.seq)
   if line ~= '' then
@@ -807,6 +805,8 @@ local function parsescalar(line, lines, indent)
   end
   return s or v
 end
+
+local parsemap;  -- : func
 
 local function parse_inner (source)
   local lines = {}
