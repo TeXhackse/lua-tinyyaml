@@ -189,69 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parseset(line, lines, indent)
-  if not isemptyline(line) then
-    error('not seq line: '..line)
-  end
-  local set = setmetatable({}, types.set)
-  while #lines > 0 do
-    -- Check for a new document
-    line = lines[1]
-    if startswith(line, '---') then
-      while #lines > 0 and not startswith(lines, '---') do
-        tremove(lines, 1)
-      end
-      return set
-    end
-
-    -- Check the indent level
-    local level = countindent(line)
-    if level < indent then
-      return set
-    elseif level > indent then
-      error("found bad indenting in line: ".. line)
-    end
-
-    local i, j = sfind(line, '%?%s+')
-    if not i then
-      i, j = sfind(line, '%?$')
-      if not i then
-        return set
-      end
-    end
-    local rest = ssub(line, j+1)
-
-    if sfind(rest, '^[^\'\"%s]*:') then
-      -- Inline nested hash
-      local indent2 = j
-      lines[1] = string.rep(' ', indent2)..rest
-      set[parsemap('', lines, indent2)] = true
-    elseif sfind(rest, '^%s+$') then
-      tremove(lines, 1)
-      if #lines == 0 then
-        tinsert(set, null)
-        return set
-      end
-      if sfind(lines[1], '^%s*%?') then
-        local indent2 = countindent(lines[1])
-        if indent2 == indent then
-          -- Null array entry
-          set[null] = true
-        else
-          set[parseseq('', lines, indent2)] = true
-        end
-      end
-
-    elseif rest then
-      tremove(lines, 1)
-      set[parsescalar(rest, lines)] = true
-    else
-      error("failed to classify line: "..line)
-    end
-  end
-  return set
-end
-
 function parsemap(line, lines, indent)
   if not isemptyline(line) then
     error('not map line: '..line)
@@ -806,6 +743,69 @@ local function parseseq(line, lines, indent)
     end
   end
   return seq
+end
+
+local function parseset(line, lines, indent)
+  if not isemptyline(line) then
+    error('not seq line: '..line)
+  end
+  local set = setmetatable({}, types.set)
+  while #lines > 0 do
+    -- Check for a new document
+    line = lines[1]
+    if startswith(line, '---') then
+      while #lines > 0 and not startswith(lines, '---') do
+        tremove(lines, 1)
+      end
+      return set
+    end
+
+    -- Check the indent level
+    local level = countindent(line)
+    if level < indent then
+      return set
+    elseif level > indent then
+      error("found bad indenting in line: ".. line)
+    end
+
+    local i, j = sfind(line, '%?%s+')
+    if not i then
+      i, j = sfind(line, '%?$')
+      if not i then
+        return set
+      end
+    end
+    local rest = ssub(line, j+1)
+
+    if sfind(rest, '^[^\'\"%s]*:') then
+      -- Inline nested hash
+      local indent2 = j
+      lines[1] = string.rep(' ', indent2)..rest
+      set[parsemap('', lines, indent2)] = true
+    elseif sfind(rest, '^%s+$') then
+      tremove(lines, 1)
+      if #lines == 0 then
+        tinsert(set, null)
+        return set
+      end
+      if sfind(lines[1], '^%s*%?') then
+        local indent2 = countindent(lines[1])
+        if indent2 == indent then
+          -- Null array entry
+          set[null] = true
+        else
+          set[parseseq('', lines, indent2)] = true
+        end
+      end
+
+    elseif rest then
+      tremove(lines, 1)
+      set[parsescalar(rest, lines)] = true
+    else
+      error("failed to classify line: "..line)
+    end
+  end
+  return set
 end
 
 local function parse_inner (source)
