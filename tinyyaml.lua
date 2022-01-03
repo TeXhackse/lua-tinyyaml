@@ -189,81 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parseblockstylestring(line, lines, indent)
-  if #lines == 0 then
-    error("failed to find multi-line scalar content")
-  end
-  local s = {}
-  local firstindent = -1
-  local endline = -1
-  for i = 1, #lines do
-    local ln = lines[i]
-    local idt = countindent(ln)
-    if idt <= indent then
-      break
-    end
-    if ln == '' then
-      tinsert(s, '')
-    else
-      if firstindent == -1 then
-        firstindent = idt
-      elseif idt < firstindent then
-        break
-      end
-      tinsert(s, ssub(ln, firstindent + 1))
-    end
-    endline = i
-  end
-
-  local striptrailing = true
-  local sep = '\n'
-  local newlineatend = true
-  if line == '|' then
-    striptrailing = true
-    sep = '\n'
-    newlineatend = true
-  elseif line == '|+' then
-    striptrailing = false
-    sep = '\n'
-    newlineatend = true
-  elseif line == '|-' then
-    striptrailing = true
-    sep = '\n'
-    newlineatend = false
-  elseif line == '>' then
-    striptrailing = true
-    sep = ' '
-    newlineatend = true
-  elseif line == '>+' then
-    striptrailing = false
-    sep = ' '
-    newlineatend = true
-  elseif line == '>-' then
-    striptrailing = true
-    sep = ' '
-    newlineatend = false
-  else
-    error('invalid blockstyle string:'..line)
-  end
-
-  if #s == 0 then
-    return ""
-  end
-
-  local _, eonl = s[#s]:gsub('\n', '\n')
-  s[#s] = rtrim(s[#s])
-  if striptrailing then
-    eonl = 0
-  end
-  if newlineatend then
-    eonl = eonl + 1
-  end
-  for i = endline, 1, -1 do
-    tremove(lines, i)
-  end
-  return tconcat(s, sep)..string.rep('\n', eonl)
-end
-
 local function parsetimestamp(line)
   local _, p1, y, m, d = sfind(line, '^(%d%d%d%d)%-(%d%d)%-(%d%d)')
   if not p1 then
@@ -807,6 +732,82 @@ local function parseflowstyle(line, lines)
   end
   return stack[1].v, line
 end
+
+local function parseblockstylestring(line, lines, indent)
+  if #lines == 0 then
+    error("failed to find multi-line scalar content")
+  end
+  local s = {}
+  local firstindent = -1
+  local endline = -1
+  for i = 1, #lines do
+    local ln = lines[i]
+    local idt = countindent(ln)
+    if idt <= indent then
+      break
+    end
+    if ln == '' then
+      tinsert(s, '')
+    else
+      if firstindent == -1 then
+        firstindent = idt
+      elseif idt < firstindent then
+        break
+      end
+      tinsert(s, ssub(ln, firstindent + 1))
+    end
+    endline = i
+  end
+
+  local striptrailing = true
+  local sep = '\n'
+  local newlineatend = true
+  if line == '|' then
+    striptrailing = true
+    sep = '\n'
+    newlineatend = true
+  elseif line == '|+' then
+    striptrailing = false
+    sep = '\n'
+    newlineatend = true
+  elseif line == '|-' then
+    striptrailing = true
+    sep = '\n'
+    newlineatend = false
+  elseif line == '>' then
+    striptrailing = true
+    sep = ' '
+    newlineatend = true
+  elseif line == '>+' then
+    striptrailing = false
+    sep = ' '
+    newlineatend = true
+  elseif line == '>-' then
+    striptrailing = true
+    sep = ' '
+    newlineatend = false
+  else
+    error('invalid blockstyle string:'..line)
+  end
+
+  if #s == 0 then
+    return ""
+  end
+
+  local _, eonl = s[#s]:gsub('\n', '\n')
+  s[#s] = rtrim(s[#s])
+  if striptrailing then
+    eonl = 0
+  end
+  if newlineatend then
+    eonl = eonl + 1
+  end
+  for i = endline, 1, -1 do
+    tremove(lines, i)
+  end
+  return tconcat(s, sep)..string.rep('\n', eonl)
+end
+
 
 local function parse_inner (source)
   local lines = {}
