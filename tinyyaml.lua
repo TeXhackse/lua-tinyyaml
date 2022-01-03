@@ -189,71 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parsescalar(line, lines, indent)
-  line = trim(line)
-  line = gsub(line, '^%s*#.*$', '')  -- comment only -> ''
-  line = gsub(line, '^%s*', '')  -- trim head spaces
-
-  if line == '' or line == '~' then
-    return null
-  end
-
-  local ts, _ = parsetimestamp(line)
-  if ts then
-    return ts
-  end
-
-  local s, _ = parsestring(line)
-  -- startswith quote ... string
-  -- not startswith quote ... maybe string
-  if s and (startswith(line, '"') or startswith(line, "'")) then
-    return s
-  end
-
-  if startswith('!', line) then  -- unexpected tagchar
-    error('unsupported line: '..line)
-  end
-
-  if equalsline(line, '{}') then
-    return {}
-  end
-  if equalsline(line, '[]') then
-    return {}
-  end
-
-  if startswith(line, '{') or startswith(line, '[') then
-    return parseflowstyle(line, lines)
-  end
-
-  if startswith(line, '|') or startswith(line, '>') then
-    return parseblockstylestring(line, lines, indent)
-  end
-
-  -- Regular unquoted string
-  line = gsub(line, '%s*#.*$', '')  -- trim tail comment
-  local v = line
-  if v == 'null' or v == 'Null' or v == 'NULL'then
-    return null
-  elseif v == 'true' or v == 'True' or v == 'TRUE' then
-    return true
-  elseif v == 'false' or v == 'False' or v == 'FALSE' then
-    return false
-  elseif v == '.inf' or v == '.Inf' or v == '.INF' then
-    return math.huge
-  elseif v == '+.inf' or v == '+.Inf' or v == '+.INF' then
-    return math.huge
-  elseif v == '-.inf' or v == '-.Inf' or v == '-.INF' then
-    return -math.huge
-  elseif v == '.nan' or v == '.NaN' or v == '.NAN' then
-    return 0 / 0
-  elseif sfind(v, '^[%+%-]?[0-9]+$') or sfind(v, '^[%+%-]?[0-9]+%.$')then
-    return tonumber(v)  -- : int
-  elseif sfind(v, '^[%+%-]?[0-9]+%.[0-9]+$') then
-    return tonumber(v)
-  end
-  return s or v
-end
-
 local parsemap;  -- : func
 
 local function parseseq(line, lines, indent)
@@ -806,6 +741,71 @@ local function parsetimestamp(line)
     z = false
   end
   return types.timestamp(y, m, d, h, i, s, f, z), ssub(line, p4+1)
+end
+
+local function parsescalar(line, lines, indent)
+  line = trim(line)
+  line = gsub(line, '^%s*#.*$', '')  -- comment only -> ''
+  line = gsub(line, '^%s*', '')  -- trim head spaces
+
+  if line == '' or line == '~' then
+    return null
+  end
+
+  local ts, _ = parsetimestamp(line)
+  if ts then
+    return ts
+  end
+
+  local s, _ = parsestring(line)
+  -- startswith quote ... string
+  -- not startswith quote ... maybe string
+  if s and (startswith(line, '"') or startswith(line, "'")) then
+    return s
+  end
+
+  if startswith('!', line) then  -- unexpected tagchar
+    error('unsupported line: '..line)
+  end
+
+  if equalsline(line, '{}') then
+    return {}
+  end
+  if equalsline(line, '[]') then
+    return {}
+  end
+
+  if startswith(line, '{') or startswith(line, '[') then
+    return parseflowstyle(line, lines)
+  end
+
+  if startswith(line, '|') or startswith(line, '>') then
+    return parseblockstylestring(line, lines, indent)
+  end
+
+  -- Regular unquoted string
+  line = gsub(line, '%s*#.*$', '')  -- trim tail comment
+  local v = line
+  if v == 'null' or v == 'Null' or v == 'NULL'then
+    return null
+  elseif v == 'true' or v == 'True' or v == 'TRUE' then
+    return true
+  elseif v == 'false' or v == 'False' or v == 'FALSE' then
+    return false
+  elseif v == '.inf' or v == '.Inf' or v == '.INF' then
+    return math.huge
+  elseif v == '+.inf' or v == '+.Inf' or v == '+.INF' then
+    return math.huge
+  elseif v == '-.inf' or v == '-.Inf' or v == '-.INF' then
+    return -math.huge
+  elseif v == '.nan' or v == '.NaN' or v == '.NAN' then
+    return 0 / 0
+  elseif sfind(v, '^[%+%-]?[0-9]+$') or sfind(v, '^[%+%-]?[0-9]+%.$')then
+    return tonumber(v)  -- : int
+  elseif sfind(v, '^[%+%-]?[0-9]+%.[0-9]+$') then
+    return tonumber(v)
+  end
+  return s or v
 end
 
 local function parse_inner (source)
