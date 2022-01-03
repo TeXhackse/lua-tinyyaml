@@ -189,72 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parseflowstyle(line, lines)
-  local stack = {}
-  while true do
-    if #line == 0 then
-      if #lines == 0 then
-        break
-      else
-        line = tremove(lines, 1)
-      end
-    end
-    local c = ssub(line, 1, 1)
-    if c == '#' then
-      line = ''
-    elseif c == ' ' or c == '\t' or c == '\r' or c == '\n' then
-      line = ssub(line, 2)
-    elseif c == '{' or c == '[' then
-      tinsert(stack, {v={},t=c})
-      line = ssub(line, 2)
-    elseif c == ':' then
-      local s = tremove(stack)
-      tinsert(stack, {v=s.v, t=':'})
-      line = ssub(line, 2)
-    elseif c == ',' then
-      local value = tremove(stack)
-      if value.t == ':' or value.t == '{' or value.t == '[' then error() end
-      if stack[#stack].t == ':' then
-        -- map
-        local key = tremove(stack)
-        key.v = checkdupekey(stack[#stack].v, key.v)
-        stack[#stack].v[key.v] = value.v
-      elseif stack[#stack].t == '{' then
-        -- set
-        stack[#stack].v[value.v] = true
-      elseif stack[#stack].t == '[' then
-        -- seq
-        tinsert(stack[#stack].v, value.v)
-      end
-      line = ssub(line, 2)
-    elseif c == '}' then
-      if stack[#stack].t == '{' then
-        if #stack == 1 then break end
-        stack[#stack].t = '}'
-        line = ssub(line, 2)
-      else
-        line = ','..line
-      end
-    elseif c == ']' then
-      if stack[#stack].t == '[' then
-        if #stack == 1 then break end
-        stack[#stack].t = ']'
-        line = ssub(line, 2)
-      else
-        line = ','..line
-      end
-    else
-      local s, rest = parsestring(line, ',{}[]')
-      if not s then
-        error('invalid flowstyle line: '..line)
-      end
-      tinsert(stack, {v=s, t='s'})
-      line = rest
-    end
-  end
-  return stack[1].v, line
-end
-
 local function parseblockstylestring(line, lines, indent)
   if #lines == 0 then
     error("failed to find multi-line scalar content")
@@ -808,6 +742,71 @@ local function parsestring(line, stopper)
   return rtrim(buf), line
 end
 
+local function parseflowstyle(line, lines)
+  local stack = {}
+  while true do
+    if #line == 0 then
+      if #lines == 0 then
+        break
+      else
+        line = tremove(lines, 1)
+      end
+    end
+    local c = ssub(line, 1, 1)
+    if c == '#' then
+      line = ''
+    elseif c == ' ' or c == '\t' or c == '\r' or c == '\n' then
+      line = ssub(line, 2)
+    elseif c == '{' or c == '[' then
+      tinsert(stack, {v={},t=c})
+      line = ssub(line, 2)
+    elseif c == ':' then
+      local s = tremove(stack)
+      tinsert(stack, {v=s.v, t=':'})
+      line = ssub(line, 2)
+    elseif c == ',' then
+      local value = tremove(stack)
+      if value.t == ':' or value.t == '{' or value.t == '[' then error() end
+      if stack[#stack].t == ':' then
+        -- map
+        local key = tremove(stack)
+        key.v = checkdupekey(stack[#stack].v, key.v)
+        stack[#stack].v[key.v] = value.v
+      elseif stack[#stack].t == '{' then
+        -- set
+        stack[#stack].v[value.v] = true
+      elseif stack[#stack].t == '[' then
+        -- seq
+        tinsert(stack[#stack].v, value.v)
+      end
+      line = ssub(line, 2)
+    elseif c == '}' then
+      if stack[#stack].t == '{' then
+        if #stack == 1 then break end
+        stack[#stack].t = '}'
+        line = ssub(line, 2)
+      else
+        line = ','..line
+      end
+    elseif c == ']' then
+      if stack[#stack].t == '[' then
+        if #stack == 1 then break end
+        stack[#stack].t = ']'
+        line = ssub(line, 2)
+      else
+        line = ','..line
+      end
+    else
+      local s, rest = parsestring(line, ',{}[]')
+      if not s then
+        error('invalid flowstyle line: '..line)
+      end
+      tinsert(stack, {v=s, t='s'})
+      line = rest
+    end
+  end
+  return stack[1].v, line
+end
 
 local function parse_inner (source)
   local lines = {}
