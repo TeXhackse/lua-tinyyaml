@@ -189,45 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parsetimestamp(line)
-  local _, p1, y, m, d = sfind(line, '^(%d%d%d%d)%-(%d%d)%-(%d%d)')
-  if not p1 then
-    return nil, line
-  end
-  if p1 == #line then
-    return types.timestamp(y, m, d), ''
-  end
-  local _, p2, h, i, s = sfind(line, '^[Tt ](%d+):(%d+):(%d+)', p1+1)
-  if not p2 then
-    return types.timestamp(y, m, d), ssub(line, p1+1)
-  end
-  if p2 == #line then
-    return types.timestamp(y, m, d, h, i, s), ''
-  end
-  local _, p3, f = sfind(line, '^%.(%d+)', p2+1)
-  if not p3 then
-    p3 = p2
-    f = 0
-  end
-  local zc = ssub(line, p3+1, p3+1)
-  local _, p4, zs, z = sfind(line, '^ ?([%+%-])(%d+)', p3+1)
-  if p4 then
-    z = tonumber(z)
-    local _, p5, zi = sfind(line, '^:(%d+)', p4+1)
-    if p5 then
-      z = z + tonumber(zi) / 60
-    end
-    z = zs == '-' and -tonumber(z) or tonumber(z)
-  elseif zc == 'Z' then
-    p4 = p3 + 1
-    z = 0
-  else
-    p4 = p3
-    z = false
-  end
-  return types.timestamp(y, m, d, h, i, s, f, z), ssub(line, p4+1)
-end
-
 local function parsescalar(line, lines, indent)
   line = trim(line)
   line = gsub(line, '^%s*#.*$', '')  -- comment only -> ''
@@ -808,6 +769,44 @@ local function parseblockstylestring(line, lines, indent)
   return tconcat(s, sep)..string.rep('\n', eonl)
 end
 
+local function parsetimestamp(line)
+  local _, p1, y, m, d = sfind(line, '^(%d%d%d%d)%-(%d%d)%-(%d%d)')
+  if not p1 then
+    return nil, line
+  end
+  if p1 == #line then
+    return types.timestamp(y, m, d), ''
+  end
+  local _, p2, h, i, s = sfind(line, '^[Tt ](%d+):(%d+):(%d+)', p1+1)
+  if not p2 then
+    return types.timestamp(y, m, d), ssub(line, p1+1)
+  end
+  if p2 == #line then
+    return types.timestamp(y, m, d, h, i, s), ''
+  end
+  local _, p3, f = sfind(line, '^%.(%d+)', p2+1)
+  if not p3 then
+    p3 = p2
+    f = 0
+  end
+  local zc = ssub(line, p3+1, p3+1)
+  local _, p4, zs, z = sfind(line, '^ ?([%+%-])(%d+)', p3+1)
+  if p4 then
+    z = tonumber(z)
+    local _, p5, zi = sfind(line, '^:(%d+)', p4+1)
+    if p5 then
+      z = z + tonumber(zi) / 60
+    end
+    z = zs == '-' and -tonumber(z) or tonumber(z)
+  elseif zc == 'Z' then
+    p4 = p3 + 1
+    z = 0
+  else
+    p4 = p3
+    z = false
+  end
+  return types.timestamp(y, m, d, h, i, s, f, z), ssub(line, p4+1)
+end
 
 local function parse_inner (source)
   local lines = {}
