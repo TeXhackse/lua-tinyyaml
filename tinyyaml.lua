@@ -189,97 +189,6 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parseseq(line, lines, indent)
-  local seq = setmetatable({}, types.seq)
-  if line ~= '' then
-    error()
-  end
-  while #lines > 0 do
-    -- Check for a new document
-    line = lines[1]
-    if startswith(line, '---') then
-      while #lines > 0 and not startswith(lines, '---') do
-        tremove(lines, 1)
-      end
-      return seq
-    end
-
-    -- Check the indent level
-    local level = countindent(line)
-    if level < indent then
-      return seq
-    elseif level > indent then
-      error("found bad indenting in line: ".. line)
-    end
-
-    local i, j = sfind(line, '%-%s+')
-    if not i then
-      i, j = sfind(line, '%-$')
-      if not i then
-        return seq
-      end
-    end
-    local rest = ssub(line, j+1)
-
-    if sfind(rest, '^[^\'\"%s]*:%s*$') or sfind(rest, '^[^\'\"%s]*:%s+.') then
-      -- Inline nested hash
-      -- There are two patterns need to match as inline nested hash
-      --   first one should have no other characters except whitespace after `:`
-      --   and the second one should have characters besides whitespace after `:`
-      --
-      --  value:
-      --    - foo:
-      --        bar: 1
-      --
-      -- and
-      --
-      --  value:
-      --    - foo: bar
-      --
-      -- And there is one pattern should not be matched, where there is no space after `:`
-      --   in below, `foo:bar` should be parsed into a single string
-      --
-      -- value:
-      --   - foo:bar
-      local indent2 = j
-      lines[1] = string.rep(' ', indent2)..rest
-      tinsert(seq, parsemap('', lines, indent2))
-    elseif sfind(rest, '^%-%s+') then
-      -- Inline nested seq
-      local indent2 = j
-      lines[1] = string.rep(' ', indent2)..rest
-      tinsert(seq, parseseq('', lines, indent2))
-    elseif isemptyline(rest) then
-      tremove(lines, 1)
-      if #lines == 0 then
-        tinsert(seq, null)
-        return seq
-      end
-      if sfind(lines[1], '^%s*%-') then
-        local nextline = lines[1]
-        local indent2 = countindent(nextline)
-        if indent2 == indent then
-          -- Null seqay entry
-          tinsert(seq, null)
-        else
-          tinsert(seq, parseseq('', lines, indent2))
-        end
-      else
-        -- - # comment
-        --   key: value
-        local nextline = lines[1]
-        local indent2 = countindent(nextline)
-        tinsert(seq, parsemap('', lines, indent2))
-      end
-    elseif rest then
-      -- Array entry with a value
-      tremove(lines, 1)
-      tinsert(seq, parsescalar(rest, lines))
-    end
-  end
-  return seq
-end
-
 local function parseset(line, lines, indent)
   if not isemptyline(line) then
     error('not seq line: '..line)
@@ -807,6 +716,97 @@ local function parsescalar(line, lines, indent)
 end
 
 local parsemap;  -- : func
+
+local function parseseq(line, lines, indent)
+  local seq = setmetatable({}, types.seq)
+  if line ~= '' then
+    error()
+  end
+  while #lines > 0 do
+    -- Check for a new document
+    line = lines[1]
+    if startswith(line, '---') then
+      while #lines > 0 and not startswith(lines, '---') do
+        tremove(lines, 1)
+      end
+      return seq
+    end
+
+    -- Check the indent level
+    local level = countindent(line)
+    if level < indent then
+      return seq
+    elseif level > indent then
+      error("found bad indenting in line: ".. line)
+    end
+
+    local i, j = sfind(line, '%-%s+')
+    if not i then
+      i, j = sfind(line, '%-$')
+      if not i then
+        return seq
+      end
+    end
+    local rest = ssub(line, j+1)
+
+    if sfind(rest, '^[^\'\"%s]*:%s*$') or sfind(rest, '^[^\'\"%s]*:%s+.') then
+      -- Inline nested hash
+      -- There are two patterns need to match as inline nested hash
+      --   first one should have no other characters except whitespace after `:`
+      --   and the second one should have characters besides whitespace after `:`
+      --
+      --  value:
+      --    - foo:
+      --        bar: 1
+      --
+      -- and
+      --
+      --  value:
+      --    - foo: bar
+      --
+      -- And there is one pattern should not be matched, where there is no space after `:`
+      --   in below, `foo:bar` should be parsed into a single string
+      --
+      -- value:
+      --   - foo:bar
+      local indent2 = j
+      lines[1] = string.rep(' ', indent2)..rest
+      tinsert(seq, parsemap('', lines, indent2))
+    elseif sfind(rest, '^%-%s+') then
+      -- Inline nested seq
+      local indent2 = j
+      lines[1] = string.rep(' ', indent2)..rest
+      tinsert(seq, parseseq('', lines, indent2))
+    elseif isemptyline(rest) then
+      tremove(lines, 1)
+      if #lines == 0 then
+        tinsert(seq, null)
+        return seq
+      end
+      if sfind(lines[1], '^%s*%-') then
+        local nextline = lines[1]
+        local indent2 = countindent(nextline)
+        if indent2 == indent then
+          -- Null seqay entry
+          tinsert(seq, null)
+        else
+          tinsert(seq, parseseq('', lines, indent2))
+        end
+      else
+        -- - # comment
+        --   key: value
+        local nextline = lines[1]
+        local indent2 = countindent(nextline)
+        tinsert(seq, parsemap('', lines, indent2))
+      end
+    elseif rest then
+      -- Array entry with a value
+      tremove(lines, 1)
+      tinsert(seq, parsescalar(rest, lines))
+    end
+  end
+  return seq
+end
 
 local function parse_inner (source)
   local lines = {}
