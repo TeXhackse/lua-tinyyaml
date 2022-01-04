@@ -189,6 +189,13 @@ local function checkdupekey(map, key)
   return key
 end
 
+--- Parse yaml string into table.
+local function parse(source, options)
+
+  if options == nil then
+    options = {}
+  end
+
 local function parsestring(line, stopper)
   stopper = stopper or ''
   local q = ssub(line, 1, 1)
@@ -801,19 +808,20 @@ local function parsedocuments(lines)
   return root
 end
 
---- Parse yaml string into table.
-local function parse(source)
-  local lines = {}
-  for line in string.gmatch(source .. '\n', '(.-)\r?\n') do
-    tinsert(lines, line)
-  end
+--- Parse yaml string into table depending on options
+  local function parse_inner (source)
+    local lines = {}
+    for line in string.gmatch(source .. '\n', '(.-)\r?\n') do
+      tinsert(lines, line)
+    end
 
-  local docs = parsedocuments(lines)
-  if #docs == 1 then
-    return docs[1]
+    local docs = parsedocuments(lines)
+    if #docs == 1 then
+      return docs[1]
+    end
+    return docs
   end
-
-  return docs
+  return parse_inner(source)
 end
 
 return {
