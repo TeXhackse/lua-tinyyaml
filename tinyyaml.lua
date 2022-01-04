@@ -146,6 +146,49 @@ local function countindent(line)
   return j, ssub(line, j+1)
 end
 
+local function isemptyline(line)
+  return line == '' or sfind(line, '^%s*$') or sfind(line, '^%s*#')
+end
+
+local function equalsline(line, needle)
+  return startswith(line, needle) and isemptyline(ssub(line, #needle+1))
+end
+
+local function compactifyemptylines(lines)
+  -- Appends empty lines as "\n" to the end of the nearest preceding non-empty line
+  local compactified = {}
+  local lastline = {}
+  for i = 1, #lines do
+    local line = lines[i]
+    if isemptyline(line) then
+      if #compactified > 0 and i < #lines then
+        tinsert(lastline, "\n")
+      end
+    else
+      if #lastline > 0 then
+        tinsert(compactified, tconcat(lastline, ""))
+      end
+      lastline = {line}
+    end
+  end
+  if #lastline > 0 then
+    tinsert(compactified, tconcat(lastline, ""))
+  end
+  return compactified
+end
+
+local function checkdupekey(map, key)
+  if rawget(map, key) ~= nil then
+    -- print("found a duplicate key '"..key.."' in line: "..line)
+    local suffix = 1
+    while rawget(map, key..'_'..suffix) do
+      suffix = suffix + 1
+    end
+    key = key ..'_'..suffix
+  end
+  return key
+end
+
 local function parsestring(line, stopper)
   stopper = stopper or ''
   local q = ssub(line, 1, 1)
@@ -214,49 +257,6 @@ local function parsestring(line, stopper)
     line = ssub(line, 2)
   end
   return rtrim(buf), line
-end
-
-local function isemptyline(line)
-  return line == '' or sfind(line, '^%s*$') or sfind(line, '^%s*#')
-end
-
-local function equalsline(line, needle)
-  return startswith(line, needle) and isemptyline(ssub(line, #needle+1))
-end
-
-local function compactifyemptylines(lines)
-  -- Appends empty lines as "\n" to the end of the nearest preceding non-empty line
-  local compactified = {}
-  local lastline = {}
-  for i = 1, #lines do
-    local line = lines[i]
-    if isemptyline(line) then
-      if #compactified > 0 and i < #lines then
-        tinsert(lastline, "\n")
-      end
-    else
-      if #lastline > 0 then
-        tinsert(compactified, tconcat(lastline, ""))
-      end
-      lastline = {line}
-    end
-  end
-  if #lastline > 0 then
-    tinsert(compactified, tconcat(lastline, ""))
-  end
-  return compactified
-end
-
-local function checkdupekey(map, key)
-  if rawget(map, key) ~= nil then
-    -- print("found a duplicate key '"..key.."' in line: "..line)
-    local suffix = 1
-    while rawget(map, key..'_'..suffix) do
-      suffix = suffix + 1
-    end
-    key = key ..'_'..suffix
-  end
-  return key
 end
 
 local function parseflowstyle(line, lines)
