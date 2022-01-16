@@ -146,7 +146,9 @@ local function countindent(line)
   return j, ssub(line, j+1)
 end
 
-local Parser = {}
+local Parser = {
+  timestamps=true,-- parse timestamps as objects instead of strings
+}
 
 function Parser:parsestring(line, stopper)
   stopper = stopper or ''
@@ -451,7 +453,7 @@ function Parser:parsescalar(line, lines, indent)
     return null
   end
 
-  if self.timestamp ~= false then
+  if self.timestamps then
     local ts, _ = self:parsetimestamp(line)
     if ts then
       return ts
