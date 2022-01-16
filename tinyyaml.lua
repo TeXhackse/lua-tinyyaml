@@ -825,7 +825,7 @@ end
 
 local function parse(source, options)
   local options = options or {}
-  parser = setmetatable (options, {__index=Parser})
+  local parser = setmetatable (options, {__index=Parser})
   return parser:parse(source)
 end
 
