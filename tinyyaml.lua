@@ -451,9 +451,11 @@ function Parser:parsescalar(line, lines, indent)
     return null
   end
 
-  local ts, _ = self:parsetimestamp(line)
-  if ts then
-    return ts
+  if self.timestamp ~= false then
+    local ts, _ = self:parsetimestamp(line)
+    if ts then
+      return ts
+    end
   end
 
   local s, _ = self:parsestring(line)
