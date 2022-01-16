@@ -146,11 +146,13 @@ local function countindent(line)
   return j, ssub(line, j+1)
 end
 
-local function parsestring(line, stopper)
+local Parser = {}
+
+function Parser:parsestring(line, stopper)
   stopper = stopper or ''
   local q = ssub(line, 1, 1)
   if q == ' ' or q == '\t' then
-    return parsestring(ssub(line, 2))
+    return self:parsestring(ssub(line, 2))
   end
   if q == "'" then
     local i = sfind(line, "'", 2, true)
@@ -259,7 +261,8 @@ local function checkdupekey(map, key)
   return key
 end
 
-local function parseflowstyle(line, lines)
+
+function Parser:parseflowstyle(line, lines)
   local stack = {}
   while true do
     if #line == 0 then
@@ -314,7 +317,7 @@ local function parseflowstyle(line, lines)
         line = ','..line
       end
     else
-      local s, rest = parsestring(line, ',{}[]')
+      local s, rest = self:parsestring(line, ',{}[]')
       if not s then
         error('invalid flowstyle line: '..line)
       end
@@ -325,7 +328,7 @@ local function parseflowstyle(line, lines)
   return stack[1].v, line
 end
 
-local function parseblockstylestring(line, lines, indent)
+function Parser:parseblockstylestring(line, lines, indent)
   if #lines == 0 then
     error("failed to find multi-line scalar content")
   end
@@ -400,7 +403,7 @@ local function parseblockstylestring(line, lines, indent)
   return tconcat(s, sep)..string.rep('\n', eonl)
 end
 
-local function parsetimestamp(line)
+function Parser:parsetimestamp(line)
   local _, p1, y, m, d = sfind(line, '^(%d%d%d%d)%-(%d%d)%-(%d%d)')
   if not p1 then
     return nil, line
@@ -439,7 +442,7 @@ local function parsetimestamp(line)
   return types.timestamp(y, m, d, h, i, s, f, z), ssub(line, p4+1)
 end
 
-local function parsescalar(line, lines, indent)
+function Parser:parsescalar(line, lines, indent)
   line = trim(line)
   line = gsub(line, '^%s*#.*$', '')  -- comment only -> ''
   line = gsub(line, '^%s*', '')  -- trim head spaces
@@ -448,12 +451,12 @@ local function parsescalar(line, lines, indent)
     return null
   end
 
-  local ts, _ = parsetimestamp(line)
+  local ts, _ = self:parsetimestamp(line)
   if ts then
     return ts
   end
 
-  local s, _ = parsestring(line)
+  local s, _ = self:parsestring(line)
   -- startswith quote ... string
   -- not startswith quote ... maybe string
   if s and (startswith(line, '"') or startswith(line, "'")) then
@@ -472,11 +475,11 @@ local function parsescalar(line, lines, indent)
   end
 
   if startswith(line, '{') or startswith(line, '[') then
-    return parseflowstyle(line, lines)
+    return self:parseflowstyle(line, lines)
   end
 
   if startswith(line, '|') or startswith(line, '>') then
-    return parseblockstylestring(line, lines, indent)
+    return self:parseblockstylestring(line, lines, indent)
   end
 
   -- Regular unquoted string
@@ -504,9 +507,7 @@ local function parsescalar(line, lines, indent)
   return s or v
 end
 
-local parsemap;  -- : func
-
-local function parseseq(line, lines, indent)
+function Parser:parseseq(line, lines, indent)
   local seq = setmetatable({}, types.seq)
   if line ~= '' then
     error()
@@ -560,12 +561,12 @@ local function parseseq(line, lines, indent)
       --   - foo:bar
       local indent2 = j
       lines[1] = string.rep(' ', indent2)..rest
-      tinsert(seq, parsemap('', lines, indent2))
+      tinsert(seq, self:parsemap('', lines, indent2))
     elseif sfind(rest, '^%-%s+') then
       -- Inline nested seq
       local indent2 = j
       lines[1] = string.rep(' ', indent2)..rest
-      tinsert(seq, parseseq('', lines, indent2))
+      tinsert(seq, self:parseseq('', lines, indent2))
     elseif isemptyline(rest) then
       tremove(lines, 1)
       if #lines == 0 then
@@ -579,25 +580,27 @@ local function parseseq(line, lines, indent)
           -- Null seqay entry
           tinsert(seq, null)
         else
-          tinsert(seq, parseseq('', lines, indent2))
+          tinsert(seq, self:parseseq('', lines, indent2))
         end
       else
         -- - # comment
         --   key: value
         local nextline = lines[1]
         local indent2 = countindent(nextline)
-        tinsert(seq, parsemap('', lines, indent2))
+        tinsert(seq, self:parsemap('', lines, indent2))
       end
+    elseif line == "*" then
+      error("did not find expected alphabetic or numeric character")
     elseif rest then
       -- Array entry with a value
       tremove(lines, 1)
-      tinsert(seq, parsescalar(rest, lines))
+      tinsert(seq, self:parsescalar(rest, lines))
     end
   end
   return seq
 end
 
-local function parseset(line, lines, indent)
+function Parser:parseset(line, lines, indent)
   if not isemptyline(line) then
     error('not seq line: '..line)
   end
@@ -633,7 +636,7 @@ local function parseset(line, lines, indent)
       -- Inline nested hash
       local indent2 = j
       lines[1] = string.rep(' ', indent2)..rest
-      set[parsemap('', lines, indent2)] = true
+      set[self:parsemap('', lines, indent2)] = true
     elseif sfind(rest, '^%s+$') then
       tremove(lines, 1)
       if #lines == 0 then
@@ -646,13 +649,13 @@ local function parseset(line, lines, indent)
           -- Null array entry
           set[null] = true
         else
-          set[parseseq('', lines, indent2)] = true
+          set[self:parseseq('', lines, indent2)] = true
         end
       end
 
     elseif rest then
       tremove(lines, 1)
-      set[parsescalar(rest, lines)] = true
+      set[self:parsescalar(rest, lines)] = true
     else
       error("failed to classify line: "..line)
     end
@@ -660,7 +663,7 @@ local function parseset(line, lines, indent)
   return set
 end
 
-function parsemap(line, lines, indent)
+function Parser:parsemap(line, lines, indent)
   if not isemptyline(line) then
     error('not map line: '..line)
   end
@@ -685,11 +688,11 @@ function parsemap(line, lines, indent)
 
     -- Find the key
     local key
-    local s, rest = parsestring(line)
+    local s, rest = self:parsestring(line)
 
     -- Quoted keys
     if s and startswith(rest, ':') then
-      local sc = parsescalar(s, {}, 0)
+      local sc = self:parsescalar(s, {}, 0)
       if sc and type(sc) ~= 'string' then
         key = sc
       else
@@ -713,7 +716,7 @@ function parsemap(line, lines, indent)
     if not isemptyline(line) then
       tremove(lines, 1)
       line = ltrim(line)
-      map[key] = parsescalar(line, lines, indent)
+      map[key] = self:parsescalar(line, lines, indent)
     else
       -- An indent
       tremove(lines, 1)
@@ -723,17 +726,17 @@ function parsemap(line, lines, indent)
       end
       if sfind(lines[1], '^%s*%-') then
         local indent2 = countindent(lines[1])
-        map[key] = parseseq('', lines, indent2)
+        map[key] = self:parseseq('', lines, indent2)
       elseif sfind(lines[1], '^%s*%?') then
         local indent2 = countindent(lines[1])
-        map[key] = parseset('', lines, indent2)
+        map[key] = self:parseset('', lines, indent2)
       else
         local indent2 = countindent(lines[1])
         if indent >= indent2 then
           -- Null hash entry
           map[key] = null
         else
-          map[key] = parsemap('', lines, indent2)
+          map[key] = self:parsemap('', lines, indent2)
         end
       end
     end
@@ -743,7 +746,7 @@ end
 
 
 -- : (list<str>)->dict
-local function parsedocuments(lines)
+function Parser:parsedocuments(lines)
   lines = compactifyemptylines(lines)
 
   if sfind(lines[1], '^%%YAML') then tremove(lines, 1) end
@@ -763,7 +766,7 @@ local function parsedocuments(lines)
     if docright then
       if (not sfind(docright, '^%s+$') and
           not sfind(docright, '^%s+#')) then
-        tinsert(root, parsescalar(docright, lines))
+        tinsert(root, self:parsescalar(docright, lines))
       end
     elseif #lines == 0 or startswith(line, '---') then
       -- A naked document
@@ -779,11 +782,11 @@ local function parsedocuments(lines)
       error('parse error: '..line)
     elseif sfind(line, '^%s*%-') then
       -- An array at the root
-      tinsert(root, parseseq('', lines, 0))
+      tinsert(root, self:parseseq('', lines, 0))
     elseif sfind(line, '^%s*[^%s]') then
       -- A hash at the root
       local level = countindent(line)
-      tinsert(root, parsemap('', lines, level))
+      tinsert(root, self:parsemap('', lines, level))
     else
       -- Shouldn't get here.  @lines have whitespace-only lines
       -- stripped, and previous match is a line with any
@@ -802,18 +805,24 @@ local function parsedocuments(lines)
 end
 
 --- Parse yaml string into table.
-local function parse(source)
+function Parser:parse(source)
   local lines = {}
   for line in string.gmatch(source .. '\n', '(.-)\r?\n') do
     tinsert(lines, line)
   end
 
-  local docs = parsedocuments(lines)
+  local docs = self:parsedocuments(lines)
   if #docs == 1 then
     return docs[1]
   end
 
   return docs
+end
+
+local function parse(source, options)
+  local options = options or {}
+  parser = setmetatable (options, {__index=Parser})
+  return parser:parse(source)
 end
 
 return {
